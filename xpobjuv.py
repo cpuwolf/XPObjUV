@@ -5,17 +5,9 @@ __copyright__ = "Copyright 2018 Wei Shuai <cpuwolf@gmail.com>"
 __version__ = "1.0"
 __email__ = "cpuwolf@gmail.com"
 """
-Created on Feb 2018
+Created on Dec 2018
 @author: Wei Shuai <cpuwolf@gmail.com>
 
-Thanks to 
-https://forums.x-plane.org/index.php?/forums/topic/140285-how-to-give-your-777-better-wing-flex/
-
-@Dusty926@x-plane.org he created fine-tuned wing flex animation based on FF777
-
-all fine-tuned values are defined in file <FF777 Flex Values.txt>
-
-this scripts targets to process <FF777 Flex Values.txt>, then apply all values into FF777 aircraft folder
 
 """
 
@@ -82,44 +74,29 @@ def checkxpobj(data):
     return False;
         
 
-def processxpobj(fileobj,cklist):
-    listmerge = []
-    
+def processxpobj(fileobj):
+    newdata=[]
     with open(fileobj,"rU") as f:
-        data = f.read()
+        for linestr in f:
+            cols=linestr.split()
+            cols_num = len(cols)
+            if cols_num > 9 and cols[0] =="VT":
+                    newlinestr = ""
+                    for i in range(cols_num):
+                        if i == 7 or i == 8:
+                            print cols[i], '%.9f' % (float(cols[i])/2.0)
+                            cols[i]='%.9f' % (float(cols[i])/2.0)
+                        newlinestr = newlinestr+cols[i] + '\t'
+                    newlinestr = newlinestr+'\r\n'
+            else:
+                newlinestr = linestr
+            newdata.append(newlinestr)
+                   
+    #shutil.copy(fileobj, fileobj+".orig.obj")
         
-        if not checkxpobj(data):
-            return False
-
-        for list in cklist:
-            kword = list[0]
-            sections=findsection(data,kword,"ANIM_rotate_end")
-            listmerge+=sections
-        
-        wewant = sorted(listmerge, key=lambda tup: tup[0])
-        print wewant
-        lenwewant = len(wewant)
-        if lenwewant > 1:
-            i = 0
-            newdata = data[:wewant[0][0]]
-            while i < lenwewant:
-                j = 0
-                for chk in cklist:
-                    fdidx=wewant[i][2].find(chk[0])
-                    if fdidx != -1:
-                        break;
-                    j+=1
-                
-                if i + 1 < lenwewant:
-                    newdata += cklist[j][1]+data[wewant[i][1]:wewant[i+1][0]]
-                else:
-                    newdata += cklist[j][1]+data[wewant[i][1]:]
-                i += 1
-
-            shutil.copy(fileobj, fileobj+".orig.obj")
-                
-            with open(fileobj,"w") as f:
-                f.write(newdata)
+    with open(fileobj+".obj","w") as fw:
+        for linestr in newdata:
+            fw.write(linestr)
     return True
 
 def loadinputfile(filetxt):
@@ -191,13 +168,10 @@ def resource_path(relative_path): # needed for bundling
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
 
-#chklist=loadinputfile("F:\\works\\GitHub\\ff777wingflex\\FF777 Flex Values.txt")
-'''chklist=[["WingPress","hello"],["EngRPress","hello"]]'''
-#findxpobj("C:\\Program Files\\X-Plane 11\\Aircraft\\Extra Aircraft\\Boeing777-Extended\\objects",chklist)
 
 def myreadconfig():
     config = ConfigParser.RawConfigParser()
-    config.read(resource_path('ff777wingflex.cfg'))
+    config.read(resource_path('xpobjuv.cfg'))
     return [config.get('basic', 'inputfile'),config.get('basic', 'outputfolder')]
 
         
@@ -206,7 +180,7 @@ def mywriteconfig(ifile,ofolder):
     config.add_section('basic')
     config.set('basic', 'inputfile', ifile)
     config.set('basic', 'outputfolder', ofolder)
-    with open(user_path('ff777wingflex.cfg'), 'wb') as configfile:
+    with open(user_path('xpobjuv.cfg'), 'wb') as configfile:
         config.write(configfile)
 
 class MyThread(QThread):
@@ -220,36 +194,14 @@ class MyThread(QThread):
         self.wait()
     def run(self):
         self.set_text.emit("<h1>please wait...</h1>")
-        chklist=loadinputfile(self.text_valuepath)
-        if len(chklist) <= 0:
-            self.set_text.emit("<h1>input file error</h1>")
-            self.set_done.emit()
-            return
-        objfolderpath=os.path.abspath(self.text_folderpath)
-        ret=backupfolder(objfolderpath)
-        if ret < 0:
-            self.set_text.emit("<h1>folder backup failed!!</h1>")
-            self.set_done.emit()
-            return
-        elif ret == 0:
-            self.set_text.emit("<h1>Don't run multiple times!</h1>")
-            self.set_done.emit()
-            return
-        self.set_text.emit("<h1>start to process...</h1>")
-        ret = findxpobj(objfolderpath,chklist)
-        if ret > 0:
-            self.set_text.emit("<h1>finished!!<br>"+str(ret)+" files are changed</h1>")
-        elif ret == 0:
-            self.set_text.emit("<h1>nothing is changed</h1>")
-        else:
-            self.set_text.emit("<h1>Don't run multiple times</h1>")
+        processxpobj(self.text_valuepath)
+        self.set_text.emit("<h1>done</h1>")
         self.set_done.emit()
 
 #debug_logger = logging.getLogger('wingflex')
 #debug_logger.write = debug_logger.debug    #consider all prints as debug information
 #debug_logger.flush = lambda: None   # this may be called when printing
 #sys.stdout = debug_logger
-sys.stdout = tempfile.TemporaryFile()
 
 qtCreatorFile = "main.ui" # Enter file here.
 
@@ -288,7 +240,7 @@ class MyApp(QtGui.QMainWindow, Ui_MainWindow):
         mywriteconfig(self.lineEditvalue.text(), self.lineEdit777.text())
         
     def getfile(self):
-        self.lineEditvalue.setText(QFileDialog.getOpenFileName(self, 'Open file', self.lineEditvalue.text(),"text files (*.txt *.*)"))
+        self.lineEditvalue.setText(QFileDialog.getOpenFileName(self, 'Open X-Plane obj file', self.lineEditvalue.text(),"X-Plane obj file(*.obj *.*)"))
         self.upconfig()
     
     def getfolder(self):
