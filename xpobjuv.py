@@ -87,71 +87,21 @@ def processxpobj(fileobj):
                             print cols[i], '%.9f' % (float(cols[i])/2.0)
                             cols[i]='%.9f' % (float(cols[i])/2.0)
                         newlinestr = newlinestr+cols[i] + '\t'
-                    newlinestr = newlinestr+'\r\n'
+                    newlinestr = newlinestr+'\n'
             else:
                 newlinestr = linestr
             newdata.append(newlinestr)
                    
     #shutil.copy(fileobj, fileobj+".orig.obj")
         
-    with open(fileobj+".obj","w") as fw:
+    with open(fileobj+".uv.obj","w") as fw:
         for linestr in newdata:
             fw.write(linestr)
     return True
 
-def loadinputfile(filetxt):
-    cookies = []
-    wewant = []
-    try:
-        with open(filetxt,"rU") as f:
-            data = f.read()
-            sections=findsection(data,"ANIM_rotate_begin ","ANIM_rotate_end")
-            index=1
-            while index < len(sections):
-                if sections[index][0]-sections[index-1][1] == 1:
-                    cookies.append([sections[index-1][0],sections[index][1],sections[index-1][2]])
-                    tmpidx=index
-                    tmpidx+=2
-                    if tmpidx < len(sections):
-                        index+=2
-                    else:
-                        index+=1
-                else:
-                    cookies.append(sections[index])
-                    index+=1
-            #print cookies
-            for cookie in cookies:
-                sp=cookie[2].split(' ')
-                wewant.append([sp[-1],data[cookie[0]:cookie[1]]])
-                #wewant.append([cookie[2],data[cookie[0]:cookie[1]]])
-            print wewant, len(wewant)
-    except IOError:
-        return wewant
-    return wewant
-    
-def findxpobj(root,cklist):
-    written = 0
-    for path, dirs, files in os.walk(root):
-        for file in files:
-            if file.endswith(".obj"):            # this line is new
-                print os.path.join(path, file)
-                if processxpobj(os.path.join(path, file),cklist):
-                    written += 1
-                else:
-                    return -1;
-    return written
-
-def backupfolder(src):
-    try:
-        shutil.copytree(src, src+".flex.old")
-        return 1
-    except OSError as exc:
-        if exc.errno == errno.EEXIST:
-            return 0
-        return -1
 
 def user_path(relative_path):
-    base_path = user_data_dir("ff777wingflex","cpuwolf")
+    base_path = user_data_dir("xpobjuv","cpuwolf")
     if not os.path.exists(base_path):
         os.makedirs(base_path, 0o777)
     mpath = os.path.join(base_path, relative_path)
@@ -214,16 +164,16 @@ class MyApp(QtGui.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.pushButtonfix.clicked.connect(self.GoCrazy)
         self.pushButtonValue.clicked.connect(self.getfile)
-        self.pushButton777.clicked.connect(self.getfolder)
+        #self.pushButton777.clicked.connect(self.getfolder)
         a=myreadconfig()
         self.lineEditvalue.setText(a[0])
-        self.lineEdit777.setText(a[1])
+        #self.lineEdit777.setText(a[1])
     
     def GoCrazy(self):
         print "start"
         self.myThread = MyThread()
         self.myThread.text_valuepath = self.lineEditvalue.text()
-        self.myThread.text_folderpath = unicode(self.lineEdit777.text())
+        #self.myThread.text_folderpath = unicode(self.lineEdit777.text())
         self.myThread.set_text.connect(self.on_set_text)
         self.myThread.set_done.connect(self.on_set_done)
         self.pushButtonfix.setEnabled(False)
@@ -237,7 +187,7 @@ class MyApp(QtGui.QMainWindow, Ui_MainWindow):
         self.label_st.setText(generated_str)
     
     def upconfig(self):
-        mywriteconfig(self.lineEditvalue.text(), self.lineEdit777.text())
+        mywriteconfig(self.lineEditvalue.text(), "")
         
     def getfile(self):
         self.lineEditvalue.setText(QFileDialog.getOpenFileName(self, 'Open X-Plane obj file', self.lineEditvalue.text(),"X-Plane obj file(*.obj *.*)"))
